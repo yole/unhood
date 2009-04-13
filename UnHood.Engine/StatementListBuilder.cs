@@ -22,20 +22,17 @@ namespace UnHood.Engine
 
         public StatementListBuilder AddForeach(int offset, int targetOffset, string text)
         {
-            _list.Add(new Statement(offset, new ForeachToken(targetOffset, new BytecodeToken(text))));
-            return this;
+            return AddStatement(offset, new ForeachToken(targetOffset, new BytecodeToken(text)));
         }
 
         public StatementListBuilder AddIteratorNext(int offset)
         {
-            _list.Add(new Statement(offset, new IteratorNextToken()));
-            return this;
+            return AddStatement(offset, new IteratorNextToken());
         }
 
         public StatementListBuilder AddIteratorPop(int offset)
         {
-            _list.Add(new Statement(offset, new IteratorPopToken()));
-            return this;
+            return AddStatement(offset, new IteratorPopToken());
         }
 
         public StatementListBuilder AddReturn(int offset)
