@@ -6,7 +6,7 @@ namespace UnHood.Engine
     public class StatementList
     {
         private Statement _parent;
-        private List<Statement> _statements = new List<Statement>();
+        private readonly List<Statement> _statements = new List<Statement>();
 
         public StatementList()
         {
@@ -49,10 +49,16 @@ namespace UnHood.Engine
 
         public int FindByTargetOffset(int offset, int startIndex)
         {
-            if (startIndex >= _statements.Count) return -1;
+            if (startIndex > _statements.Count) return -1;
             var composite = Parent as CompositeStatement;
             if (composite != null && composite.EndOffset == offset)
+            {
                 return _statements.Count;
+            }
+            if (_statements [_statements.Count - 1].StartOffset < offset)
+            {
+                return _statements.Count;
+            }
             return _statements.FindIndex(startIndex, s => s.StartOffset == offset);
         }
 
@@ -67,6 +73,7 @@ namespace UnHood.Engine
         {
             oldStatements._statements.ForEach(c => _statements.Remove(c));
             _statements.Insert(index, newStatement);
+            newStatement.Parent = _parent;
         }
 
         public StatementList GetRange(int startIndex, int count)
@@ -163,7 +170,7 @@ namespace UnHood.Engine
 
         private Statement FindBreakTarget(int targetOffset)
         {
-            return FindParent(s => s is ForeachStatement && ((ForeachStatement) s).EndOffset == targetOffset);
+            return FindParent(s => (s is ForeachStatement || s is WhileStatement) && s.EndOffset == targetOffset);
         }
 
         private void CreateIfStatement(int i, JumpIfNotToken jumpToken, int ifEnd)
@@ -220,8 +227,9 @@ namespace UnHood.Engine
             if (endIndex >= 0)
             {
                 int count = endIndex - startIndex - 1;
+                var endOffset = endIndex < _statements.Count ? _statements [endIndex].StartOffset : this[endIndex-1].EndOffset;
                 var statement = new SwitchStatement(this[startIndex].StartOffset, token.Expr, GetRange(startIndex + 1, count),
-                                                    endIndex);
+                                                    endOffset);
                 ReplaceRange(startIndex, endIndex - startIndex, statement);
                 statement.ProcessChildren();
                 return true;
@@ -281,8 +289,18 @@ namespace UnHood.Engine
 
         public bool IsIncompleteControlFlow()
         {
-            var token = Find(s => s.Token is JumpToken && !(s is IControlStatement));
-            return token != null;
+            foreach(var statement in _statements)
+            {
+                if (statement is CompositeStatement && ((CompositeStatement) statement).Children.IsIncompleteControlFlow())
+                {
+                    return true;
+                }
+                if (statement.Token is JumpToken && !(statement is IControlStatement))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         public void TrimLast(Func<BytecodeToken, bool> condition)
@@ -299,46 +317,36 @@ namespace UnHood.Engine
 
     class Statement
     {
-        private readonly int _startOffset;
-        private readonly int _endOffset;
-        protected BytecodeToken _token;
-
         public Statement(int startOffset, BytecodeToken token)
         {
-            _startOffset = startOffset;
-            _endOffset = -1;
-            _token = token;
+            StartOffset = startOffset;
+            EndOffset = -1;
+            Token = token;
         }
 
         public Statement(int startOffset, int endOffset, BytecodeToken token)
         {
-            _startOffset = startOffset;
-            _endOffset = endOffset;
-            _token = token;
+            StartOffset = startOffset;
+            EndOffset = endOffset;
+            Token = token;
         }
 
-        public BytecodeToken Token
-        {
-            get { return _token; }
-        }
-
-        public int StartOffset
-        {
-            get { return _startOffset; }
-        }
+        public BytecodeToken Token { get; protected set; }
+        public int StartOffset { get; private set; }
+        public int EndOffset { get; protected set; }
 
         internal Statement Parent { get; set; }
 
         public virtual void Print(TextBuilder result, LabelTableToken labelTable, bool showStartOffset)
         {
-            if (_token.ToString() == "") return;
+            if (Token.ToString() == "") return;
             PrintLabel(labelTable, result);
             result.Indent();
             if (showStartOffset)
             {
-                result.Append("/* ").Append(_startOffset).Append(" */ ");
+                result.Append("/* ").Append(StartOffset).Append(" */ ");
             }
-            result.Append(_token.ToString(), _startOffset, _endOffset).Append(";");
+            result.Append(Token.ToString(), StartOffset, EndOffset).Append(";");
             result.Append("\n");
         }
 
@@ -346,7 +354,7 @@ namespace UnHood.Engine
         {
             if (labelTable != null)
             {
-                var label = labelTable.GetLabel(_startOffset);
+                var label = labelTable.GetLabel(StartOffset);
                 if (label != null)
                 {
                     result.Append(label).Append(":").NewLine();
@@ -362,14 +370,13 @@ namespace UnHood.Engine
     internal abstract class CompositeStatement : Statement
     {
         private readonly StatementList _children;
-        private readonly int _endOffset;
 
         protected CompositeStatement(int startOffset, BytecodeToken token, StatementList children, int endOffset)
             : base(startOffset, token)
         {
             _children = children;
             _children.Parent = this;
-            _endOffset = endOffset;
+            EndOffset = endOffset;
         }
 
         public override void Print(TextBuilder result, LabelTableToken labelTable, bool showStartOffsets)
@@ -398,7 +405,6 @@ namespace UnHood.Engine
         protected abstract void PrintHead(TextBuilder result);
 
         public StatementList Children { get { return _children; } }
-        internal int EndOffset { get { return _endOffset; } }
     }
 
     internal class IfStatement : CompositeStatement, IControlStatement
@@ -410,7 +416,7 @@ namespace UnHood.Engine
 
         protected override void PrintHead(TextBuilder result)
         {
-            result.Append("if (").Append(_token.ToString()).Append(")");
+            result.Append("if (").Append(Token.ToString()).Append(")");
         }
     }
 
@@ -436,7 +442,7 @@ namespace UnHood.Engine
 
         protected override void PrintHead(TextBuilder result)
         {
-            result.Append("while (").Append(_token.ToString()).Append(")");
+            result.Append("while (").Append(Token.ToString()).Append(")");
         }
 
         public override void ProcessChildren()
@@ -455,7 +461,7 @@ namespace UnHood.Engine
 
         protected override void PrintHead(TextBuilder result)
         {
-            var foreachToken = (ForeachToken)_token;
+            var foreachToken = (ForeachToken)Token;
             result.Append("foreach ").Append(foreachToken.Expr.ToString());
             if (foreachToken.IteratorExpr != null)
             {
@@ -497,7 +503,7 @@ namespace UnHood.Engine
 
         protected override void PrintHead(TextBuilder result)
         {
-            result.Append("switch (").Append(_token.ToString()).Append(")");
+            result.Append("switch (").Append(Token.ToString()).Append(")");
         }
 
         protected override void PrintChildren(TextBuilder result, LabelTableToken labelTable, bool showStartOffsets)

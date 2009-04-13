@@ -68,7 +68,14 @@ namespace UnHood.Engine
             result.HasErrors = statements.HasErrors();
             if (createControlStatements)
             {
-                statements.CreateControlStatements();
+                try
+                {
+                    statements.CreateControlStatements();
+                }
+                catch (Exception)
+                {
+                    ProblemRegistry.RegisterIncompleteControlFlow(this);
+                }
                 if (statements.IsIncompleteControlFlow())
                 {
                     ProblemRegistry.RegisterIncompleteControlFlow(this);

@@ -199,6 +199,117 @@ namespace UnHood.Tests
                 "}");
         }
 
+        [Test]
+        public void IfElseReturn()
+        {
+            var builder = new StatementListBuilder();
+            builder
+                .AddJumpIfNot(0, 112, "!bGameRelevant")
+                .AddJumpIfNot(87, 109, "bNoDelete")
+                .Add(96, "ShutDown()")
+                .AddJump(106, 112)
+                .Add(109, "Destroy()")
+                .AddReturn(112);
+
+            VerifyText(builder,
+                       "if (!bGameRelevant)",
+                       "{",
+                       "    if (bNoDelete)",
+                       "    {",
+                       "        ShutDown();",
+                       "    }",
+                       "    else",
+                       "    {",
+                       "        Destroy();",
+                       "    }",
+                       "}");
+        }
+
+        [Test]
+        public void BreakInElseInForeach()
+        {
+            var builder = new StatementListBuilder();
+            builder
+                .AddForeach(320, 438, "LocalPlayerControllers(Class'PlayerController', P)")
+                .AddJumpIfNot(339, 437, "P.ViewTarget != None")
+                .AddJumpIfNot(359, 402, "P.Pawn == Instigator && Instigator != None")
+                .AddIteratorPop(396)
+                .AddReturn(397, "true")
+                .AddJump(399, 437)
+                .Add(402, "bResult = CheckMaxEffectDistance(P, SpawnLocation, CullDistance)")
+                .AddJump(434, 438)
+                .AddIteratorNext(437)
+                .AddIteratorPop(438)
+                .AddReturn(439, "bResult");
+            VerifyText(builder,
+                "foreach LocalPlayerControllers(Class'PlayerController', P)",
+                "{",
+                "    if (P.ViewTarget != None)",
+                "    {",
+                "        if (P.Pawn == Instigator && Instigator != None)",
+                "        {",
+                "            return true;",
+                "        }",
+                "        else",
+                "        {",
+                "            bResult = CheckMaxEffectDistance(P, SpawnLocation, CullDistance);",
+                "            break;",
+                "        }",
+                "    }",
+                "}",
+                "return bResult;");
+        }
+
+        [Test]
+        public void BreakInWhile()
+        {
+            var builder = new StatementListBuilder();
+            builder
+                .AddJumpIfNot(11, 180, "CurrentMove != None")
+                .AddJumpIfNot(22, 174, "CurrentMove.TimeStamp <= CurrentTimeStamp")
+                .Add(70, "LastAckedAccel = CurrentMove.Acceleration")
+                .AddJump(171, 177)
+                .AddJump(174, 180)
+                .AddJump(177, 11)
+                .AddReturn(180);
+            VerifyText(builder,
+                "while (CurrentMove != None)",
+                "{",
+                "    if (CurrentMove.TimeStamp <= CurrentTimeStamp)",
+                "    {",
+                "        LastAckedAccel = CurrentMove.Acceleration;",
+                "    }",
+                "    else",
+                "    {",
+                "        break;",
+                "    }",
+                "}");
+        }
+
+        [Test]
+        public void ReturnInElse()
+        {
+            var builder = new StatementListBuilder();
+            builder
+                .Add(0, "P = Pawn(TheActor)")
+                .AddJumpIfNot(16, 36, "P != None")
+                .AddReturn(27, "P")
+                .AddJump(33, 81)
+                .Add(36, "C = Controller(TheActor)")
+                .AddReturn(52, "C != None ? C.Pawn : None");
+            VerifyText(builder,
+                "P = Pawn(TheActor);",
+                "if (P != None)",
+                "{",
+                "    return P;",
+                "}",
+                "else",
+                "{",
+                "    C = Controller(TheActor);",
+                "    return C != None ? C.Pawn : None;",
+                "}");
+        }
+
         private static string PrintText(StatementListBuilder builder)
         {
             builder.List.CreateControlStatements();
