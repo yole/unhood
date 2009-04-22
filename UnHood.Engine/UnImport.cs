@@ -7,13 +7,15 @@ namespace UnHood.Engine
 {
     public class UnImport: UnPackageItem
     {
+        private readonly UnPackage _package;
         private readonly UnName _packageName;
         protected UnName _className;
         private int _outer;
         private int _flags;
 
-        public UnImport(UnName packageName, UnName className, int outer, UnName objectName, int flags)
+        public UnImport(UnPackage package, UnName packageName, UnName className, int outer, UnName objectName, int flags)
         {
+            _package = package;
             _packageName = packageName;
             _className = className;
             _outer = outer;
@@ -29,6 +31,11 @@ namespace UnHood.Engine
         public override string ClassName
         {
             get { return _className.Name; }
+        }
+
+        public override UnExport Resolve()
+        {
+            return _package.ResolveImport(this);
         }
 
         public override string ToString()

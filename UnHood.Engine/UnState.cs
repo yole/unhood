@@ -8,7 +8,7 @@ namespace UnHood.Engine
     class UnState: UnContainer
     {
         public UnState(UnExport self, byte[] bytecode)
-            : base(self, bytecode)
+            : base(self, 0, bytecode)
         {
         }
 
@@ -17,7 +17,7 @@ namespace UnHood.Engine
             result.Indent().Append("state ").Append(_self.ObjectName).NewLine();
             result.Indent().Append("{").NewLine();
             result.PushIndent();
-            DecompileChildren(result);
+            DecompileChildren(result, false);
             result.PopIndent();
 
             StatementList bytecode = ReadBytecode();

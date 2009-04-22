@@ -5,40 +5,36 @@ using System.Text;
 
 namespace UnHood.Engine
 {
-    class UnScriptStruct: Decompilable
+    class UnScriptStruct: UnContainer
     {
-        private readonly UnExport _export;
         private readonly int _flags;
 
-        public UnScriptStruct(UnExport export, int flags)
+        public UnScriptStruct(UnExport self, int flags, int superIndex)
+            : base(self, superIndex, null)
         {
-            _export = export;
             _flags = flags;
         }
 
-        bool Native { get { return (_flags & 0x1) != 0; } }
+        internal bool Native { get { return (_flags & 0x1) != 0; } }
         bool Transient { get { return (_flags & 0x8) != 0; } }
 
-        public void Decompile(TextBuilder result)
+        public string Name { get { return _self.ObjectName; } }
+        public UnPackageItem Super { get { return _super; } }
+
+        public override void Decompile(TextBuilder result)
         {
             result.Indent().Append("struct ");
             if (Native) result.Append("native ");
             if (Transient) result.Append("transient ");
-            result.Append(_export.ObjectName).NewLine();
+            result.Append(_self.ObjectName);
+            if (_super != null)
+            {
+                result.Append(" extends ").Append(_super.ObjectName);
+            }
+            result.NewLine();
             result.Append("{").NewLine();
             result.PushIndent();
-            foreach (UnExport child in _export.Children.Reverse())
-            {
-                var instance = child.ReadInstance();
-                if (instance is Decompilable)
-                {
-                    ((Decompilable) instance).Decompile(result);
-                }
-                else
-                {
-                    result.Indent().Append("// ").Append(child.ClassName).Append(" ").Append(child.ObjectName).NewLine();
-                }
-            }
+            DecompileChildren(result, true);
             result.PopIndent();
             result.Indent().Append("}").NewLine().NewLine();
         }

@@ -18,7 +18,7 @@ namespace UnHood.Engine.UE3
         public static UnPackage ReadPackage(BinaryReader reader, string baseDir)
         {
             UnPackage package = DoReadPackage(reader);
-            package.LoadNativeFunctions(new UE3PackageReader(baseDir));
+            package.LoadImportedDeclarations(new UE3PackageReader(baseDir));
             return package;
         }
 
@@ -168,6 +168,7 @@ namespace UnHood.Engine.UE3
 
         private static void RegisterInstanceReaders(UnPackage package)
         {
+            package.PropertyListReader = new UE3PropertyListReader();
             package.RegisterInstanceReader("Class", new UE3ClassReader());
             package.RegisterInstanceReader("Function", new UE3FunctionReader());
             package.RegisterInstanceReader("IntProperty", new UE3ClassPropertyReader());
@@ -186,6 +187,17 @@ namespace UnHood.Engine.UE3
             package.RegisterInstanceReader("Const", new UE3ConstReader());
             package.RegisterInstanceReader("ScriptStruct", new UE3ScriptStructReader());
             package.RegisterInstanceReader("State", new UE3StateReader());
+            package.RegisterInstanceReader("TextBuffer", new UE3TextBufferReader());
+        }
+    }
+
+    internal class UE3TextBufferReader : InstanceReader
+    {
+        public object ReadInstance(UnPackage package, BinaryReader reader, UnExport export)
+        {
+            reader.ReadBytes(20);
+            int textLength = reader.ReadInt32();
+            return new string(Encoding.Default.GetChars(reader.ReadBytes(textLength)));
         }
     }
 }

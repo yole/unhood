@@ -163,6 +163,11 @@ namespace UnHood.Engine
         public NothingToken() : base("") { }
     }
 
+    class EndOfScriptToken: BytecodeToken
+    {
+        public EndOfScriptToken() : base("") { }
+    }
+
     public class LabelTableToken: BytecodeToken
     {
         private readonly Dictionary<int, string> _labels = new Dictionary<int, string>();
@@ -198,13 +203,14 @@ namespace UnHood.Engine
         private const int EX_Nothing = 0x0B;
         private const int EX_LabelTable = 0x0C;
         private const int EX_GotoLabel = 0x0D;
-        private const int EX_EatString = 0x0E;
+        private const int EX_EatReturnValue = 0x0E;
         private const int EX_Let = 0x0F;
         private const int EX_DynArrayElement = 0x10;
         private const int EX_New = 0x11;
         private const int EX_ClassContext = 0x12;
         private const int EX_Metacast = 0x13;
         private const int EX_LetBool = 0x14;
+        // EX_EndParmValue = 0x15?
         private const int EX_EndFunctionParms = 0x16;
         private const int EX_Self = 0x17;
         private const int EX_Skip = 0x18;
@@ -226,7 +232,6 @@ namespace UnHood.Engine
         private const int EX_False = 0x28;
         private const int EX_NativeParm = 0x29;
         private const int EX_NoObject = 0x2A;
-        private const int EX_Unknown_jumpover2 = 0x2B;           // ??? only seen on old packages (v61)
         private const int EX_IntConstByte = 0x2C;
         private const int EX_BoolVariable = 0x2D;
         private const int EX_DynamicCast = 0x2E;
@@ -237,38 +242,37 @@ namespace UnHood.Engine
         private const int EX_StructCmpNe = 0x33;
         private const int EX_UnicodeStringConst = 0x34;
         private const int EX_StructMember = 0x35;
-        private const int EX_ArrayLength = 0x36;
-        private const int EX_GlobalStateCall = 0x37;
-        private const int EX_GlobalFunction = 0x38;
+        private const int EX_DynArrayLength = 0x36;
+        private const int EX_GlobalFunction = 0x37;
+        private const int EX_PrimitiveCast = 0x38;
         private const int EX_DynArrayInsert = 0x39;
-        private const int EX_ByteToInt = 0x3A;
-        private const int EX_DelegateCmpEq = 0x3B;
-        private const int EX_DelegateCmpNe = 0x3C;
-        private const int EX_DelegateAddressCmpEq = 0x3D;
-        private const int EX_IntToBool = 0x3E;
-        private const int EX_DelegateNone = 0x3F;
+        private const int EX_ByteToInt = 0x3A;        // EX_ReturnNothing = 0x3A
+        private const int EX_EqualEqual_DelDel = 0x3B;
+        private const int EX_NotEqual_DelDel = 0x3C;
+        private const int EX_EqualEqual_DelFunc = 0x3D;
+        private const int EX_NotEqual_DelFunc = 0x3E;
+        private const int EX_EmptyDelegate = 0x3F;
         private const int EX_DynArrayRemove = 0x40;
-        private const int EX_BoolToInt = 0x41;
-        private const int EX_Remove = 0x41; // redefined?
-        private const int EX_DelegateCall = 0x42;
-        private const int EX_DelegateFromName = 0x43;
-        private const int EX_DelegateLet = 0x44;
-        private const int EX_Ternary = 0x45;
+        private const int EX_DebugInfo = 0x41;
+        private const int EX_DelegateFunction = 0x42;
+        private const int EX_DelegateProperty = 0x43;
+        private const int EX_LetDelegate = 0x44;
+        private const int EX_Conditional = 0x45;
         private const int EX_DynArrayFind = 0x46;
-        private const int EX_DynArrayFindByProp = 0x47;
-        private const int EX_OutParam = 0x48;
-        private const int EX_DefaultParamValue = 0x49;
-        private const int EX_DefaultValue = 0x4A;
-        private const int EX_DelegateAddressFromName = 0x4B;
+        private const int EX_DynArrayFindStruct = 0x47;
+        private const int EX_LocalOutVariable = 0x48;
+        private const int EX_DefaultParmValue = 0x49;
+        private const int EX_EmptyParmValue = 0x4A;
+        private const int EX_InstanceDelegate = 0x4B;
+        private const int EX_GoW_DefaultValue = 0x50;
         private const int EX_InterfaceContext = 0x51;
-        private const int EX_CastToInterface = 0x52;
-        private const int EX_IntToString = 0x53;
-        private const int EX_BoolToString = 0x54;
+        private const int EX_InterfaceCast = 0x52;
+        private const int EX_EndOfScript = 0x53;
+        private const int EX_DynArrayAdd = 0x54;
         private const int EX_DynArrayAddItem = 0x55;
         private const int EX_DynArrayRemoveItem = 0x56;
         private const int EX_DynArrayInsertItem = 0x57;
         private const int EX_DynArrayIterator = 0x58;
-        private const int EX_RotatorToString = 0x59;
 
         private const int EX_ExtendedNative = 0x60;
         private const int EX_FirstNative = 0x70;
@@ -355,7 +359,7 @@ namespace UnHood.Engine
                     _reader.ReadInt16();
                     return ReadNext();
 
-                case EX_EatString:
+                case EX_EatReturnValue:
                     _reader.ReadInt32();
                     return ReadNext();
 
@@ -379,12 +383,12 @@ namespace UnHood.Engine
                     return Token("false");
 
                 case EX_NoObject:
-                case EX_DelegateNone:
+                case EX_EmptyDelegate:
                     return Token("None");
 
                 case EX_Let:
                 case EX_LetBool:
-                case EX_DelegateLet:
+                case EX_LetDelegate:
                     BytecodeToken lhs = ReadNext();
                     if (IsInvalid(lhs)) return lhs;
                     BytecodeToken rhs = ReadNext();
@@ -442,25 +446,17 @@ namespace UnHood.Engine
                         return ReadCall(functionName);
                     }
 
-                case EX_GlobalFunction:
+                case EX_PrimitiveCast:
                     {
                         var prefix = _reader.ReadByte();
                         var v = ReadNext();
                         return v;
-//                        int v1 = _reader.ReadInt16();
-//                        int v2 = _reader.ReadByte();
-//                        var obj = ReadRef();
-//                        _reader.ReadInt32();
-//                        var field = ReadRef();
-//                        return Token(obj + "." + field);
-//                        return ErrToken("// EX_GlobalFunction");
-    //                    return Token(_package.ResolveClassItem(nameIndex).ObjectName);
                     }
 
                 case EX_VirtualFunction:
                     return ReadCall(ReadName());
 
-                case EX_GlobalStateCall:
+                case EX_GlobalFunction:
                     return ReadCall("Global." + ReadName());
 
                 case EX_BoolVariable:
@@ -502,7 +498,7 @@ namespace UnHood.Engine
                         return Token(array + "[" + index + "]");
                     }
 
-                case EX_ArrayLength:
+                case EX_DynArrayLength:
                     return WrapNextBytecode(op => Token(op + ".Length"));
 
                 case EX_StructCmpEq:
@@ -511,14 +507,14 @@ namespace UnHood.Engine
                 case EX_StructCmpNe:
                     return CompareStructs("!=");
 
-                case EX_IntToString:
-                    return WrapNextBytecode(op => Token("string(" + op + ")"));
-//                    return Token("???");
+                case EX_EndOfScript:
+                    return new EndOfScriptToken();
 
-                case EX_DefaultValue:
+                case EX_EmptyParmValue:
+                case EX_GoW_DefaultValue:
                     return new DefaultValueToken("");
 
-                case EX_DefaultParamValue:
+                case EX_DefaultParmValue:
                     {
                         var size = _reader.ReadInt16();
                         var offset = _reader.BaseStream.Position;
@@ -527,7 +523,7 @@ namespace UnHood.Engine
                         return new DefaultParamValueToken(defaultValueExpr.ToString());
                     }
 
-                case EX_OutParam:
+                case EX_LocalOutVariable:
                     int valueIndex = _reader.ReadInt32();
                     var packageItem = _package.ResolveClassItem(valueIndex);
                     if (packageItem == null) return ErrToken("Unresolved package item " + packageItem);
@@ -568,13 +564,13 @@ namespace UnHood.Engine
                     var i3 = _reader.ReadInt32();
                     return Token("rot(" + i1 + "," + i2 + "," + i3 + ")");
 
-                case EX_CastToInterface:
+                case EX_InterfaceCast:
                     {
                         var interfaceName = ReadRef();
                         return WrapNextBytecode(op => Token(interfaceName.ObjectName + "(" + op + ")"));
                     }
 
-                case EX_Ternary:
+                case EX_Conditional:
                     {
                         var condition = ReadNext();
                         if (IsInvalid(condition)) return condition;
@@ -582,7 +578,8 @@ namespace UnHood.Engine
                         var pos = _reader.BaseStream.Position;
                         var truePart = ReadNext();
                         if (IsInvalid(truePart)) return WrapErrToken(condition + " ? " + truePart, truePart);
-                        Debug.Assert(_reader.BaseStream.Position == pos + trueSize);
+                        if (_reader.BaseStream.Position != pos + trueSize)
+                            return ErrToken("conditional true part size mismatch");
                         var falseSize = _reader.ReadInt16();
                         pos = _reader.BaseStream.Position;
                         var falsePart = ReadNext();
@@ -594,7 +591,7 @@ namespace UnHood.Engine
                 case EX_DynArrayFind:
                     return ReadDynArray1ArgMethod("Find");
 
-                case EX_DynArrayFindByProp:
+                case EX_DynArrayFindStruct:
                     return ReadDynArray2ArgMethod("Find", true);
 
                 case EX_DynArrayRemove:
@@ -623,11 +620,11 @@ namespace UnHood.Engine
                         return new ForeachToken(endOffset, array, iteratorVar);
                     }
 
-                case EX_DelegateFromName:
-                case EX_DelegateAddressFromName:
+                case EX_DelegateProperty:
+                case EX_InstanceDelegate:
                     return Token(ReadName());
 
-                case EX_DelegateCall:
+                case EX_DelegateFunction:
                     {
                         var receiver = ReadNext();
                         if (IsInvalid(receiver)) return receiver;
@@ -639,11 +636,11 @@ namespace UnHood.Engine
                         return ReadCall(receiver + "." + methodName);
                     }
 
-                case EX_DelegateCmpEq:
-                case EX_DelegateAddressCmpEq:
+                case EX_EqualEqual_DelDel:
+                case EX_EqualEqual_DelFunc:
                     return CompareDelegates("==");
 
-                case EX_DelegateCmpNe:
+                case EX_NotEqual_DelDel:
                     return CompareDelegates("!=");
 
                 default:

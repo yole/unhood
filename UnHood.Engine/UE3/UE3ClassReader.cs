@@ -37,7 +37,9 @@ namespace UnHood.Engine.UE3
             reader.ReadInt32();
             reader.ReadInt32();
             int defaultPropertiesIndex = reader.ReadInt32();
-            return new UnClass(export, superIndex, bytecode);
+            UnExport defaultProperties = defaultPropertiesIndex == 0
+                ? null : package.ResolveClassItem(defaultPropertiesIndex).Resolve();
+            return new UnClass(export, superIndex, bytecode, defaultProperties);
         }
     }
 }

@@ -9,8 +9,6 @@ namespace UnHood.Engine
     public class UnExport: UnPackageItem
     {
         private UnPackage _package;
-        private int _exportOffset;
-        private int _exportSize;
         private readonly List<UnExport> _children = new List<UnExport>();
         private UnExport _parent;
 
@@ -18,13 +16,13 @@ namespace UnHood.Engine
         {
             _package = package;
             _objectName = objectName;
-            _exportOffset = exportOffset;
-            _exportSize = exportSize;
+            ExportOffset = exportOffset;
+            ExportSize = exportSize;
         }
 
         public override string ToString()
         {
-            return _objectName.Name + ": " + ClassName + "[" + _exportSize + "]";
+            return _objectName.Name + ": " + ClassName + "[" + ExportSize + "]";
         }
 
         public override string ClassName
@@ -32,9 +30,15 @@ namespace UnHood.Engine
            get { return (ClassItem == null ? "Class" : ClassItem.ObjectName); }
         }
 
+        public override UnExport Resolve()
+        {
+            return this;
+        }
+
         public UnPackageItem ClassItem { get; set; }
 
-        public int ExportOffset { get { return _exportOffset; } }
+        public int ExportOffset { get; private set; }
+        public int ExportSize { get; private set; }
         public UnPackage Package { get { return _package;  } }
         public UnExport Parent { get { return _parent; } }
 
