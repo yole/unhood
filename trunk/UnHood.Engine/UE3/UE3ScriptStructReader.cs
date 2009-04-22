@@ -10,9 +10,11 @@ namespace UnHood.Engine.UE3
     {
         public object ReadInstance(UnPackage package, BinaryReader reader, UnExport export)
         {
-            reader.ReadBytes(11*4);
+            int[] values = new int[11];
+            for (int i = 0; i < 11; i++)
+                values[i] = reader.ReadInt32();
             int flags = reader.ReadInt32();
-            return new UnScriptStruct(export, flags);
+            return new UnScriptStruct(export, flags, values [3]);
         }
     }
 }

@@ -41,7 +41,7 @@ namespace UnHood.Engine
                 {
                     break;
                 }
-                if (bc == null) break;
+                if (bc == null || bc is EndOfScriptToken) break;
                 statements.Add(new Statement(startOffset, (int) s.Position, bc));
                 if (bc is ErrorBytecodeToken)
                 {
@@ -88,13 +88,18 @@ namespace UnHood.Engine
 
     public abstract class UnContainer: UnBytecodeOwner
     {
-        protected UnContainer(UnExport self, byte[] bytecode) : base(self, bytecode)
+        protected readonly UnPackageItem _super;
+
+        protected UnContainer(UnExport self, int superIndex, byte[] bytecode)
+            : base(self, bytecode)
         {
+            _super = superIndex == 0 ? null : _self.Package.ResolveClassItem(superIndex);
         }
 
-        protected void DecompileChildren(TextBuilder result)
+        protected void DecompileChildren(TextBuilder result, bool reverse)
         {
-            foreach (UnExport export in _self.Children)
+            var collection = reverse ? _self.Children.Reverse() : _self.Children;
+            foreach (UnExport export in collection)
             {
                 try
                 {
@@ -114,16 +119,33 @@ namespace UnHood.Engine
                 }
             }
         }
+
+        internal UnExport FindMemberExport(string name)
+        {
+            var export = _self.Children.SingleOrDefault(e => e.ObjectName == name);
+            if (export != null) return export;
+
+            var superExport = _super.Resolve();
+            if (superExport != null)
+            {
+                var superClass = superExport.ReadInstance() as UnContainer;
+                if (superClass != null)
+                {
+                    return superClass.FindMemberExport(name);
+                }
+            }
+            return null;
+        }
     }
 
     public class UnClass: UnContainer
     {
-        private readonly UnPackageItem _super;
+        private readonly UnPackageItem _defaults;
 
-        public UnClass(UnExport self, int superIndex, byte[] bytecode)
-            : base(self, bytecode)
+        internal UnClass(UnExport self, int superIndex, byte[] bytecode, UnPackageItem defaults)
+            : base(self, superIndex, bytecode)
         {
-            _super = _self.Package.ResolveClassItem(superIndex);
+            _defaults = defaults;
         }
 
         public override void Decompile(TextBuilder result)
@@ -132,29 +154,86 @@ namespace UnHood.Engine
             if (_super != null)
                 result.Append(" extends ").Append(_super.ObjectName);
             result.Append(";\n");
-            DecompileChildren(result);
+            DecompileChildren(result, false);
 
             var statementList = ReadBytecode();
             if (statementList.Count > 0)
             {
-                result.Append("replication\n{\n").PushIndent();
-                for(int i=0; i<statementList.Count; i++)
+                DecompileReplicationBlock(result, statementList);
+            }
+            if (_defaults != null)
+            {
+                DecompileDefaultProperties(result);
+            }
+        }
+
+        private void DecompileReplicationBlock(TextBuilder result, StatementList statementList)
+        {
+            result.Append("replication\n{\n").PushIndent();
+            for(int i=0; i<statementList.Count; i++)
+            {
+                List<String> names = FindReplicatedProperties(statementList [i].StartOffset);
+                if (names.Count > 0)
                 {
-                    List<String> names = FindReplicatedProperties(statementList [i].StartOffset);
-                    if (names.Count > 0)
+                    result.Indent().Append("if (").Append(statementList[i].Token.ToString()).Append(")").NewLine();
+                    result.Indent().Append("    ");
+                    foreach (string name in names)
                     {
-                        result.Indent().Append("if (").Append(statementList[i].Token.ToString()).Append(")").NewLine();
-                        result.Indent().Append("    ");
-                        foreach (string name in names)
-                        {
-                            result.Append(name);
-                            if (name != names.Last()) result.Append(", ");
-                        }
-                        result.Append(";").NewLine().NewLine();
+                        result.Append(name);
+                        if (name != names.Last()) result.Append(", ");
+                    }
+                    result.Append(";").NewLine().NewLine();
+                }
+            }
+            result.Append("}").NewLine().NewLine().PopIndent();
+        }
+
+        private void DecompileDefaultProperties(TextBuilder result)
+        {
+            result.Append("defaultproperties\n{\n").PushIndent();
+            var defaultsExport = _defaults.Resolve();
+            UnPropertyList propertyList = Package.ReadPropertyList(defaultsExport, this);
+            foreach(UnProperty prop in propertyList.Properties)
+            {
+                if (prop.Value is UnPropertyArray)
+                {
+                    var array = (UnPropertyArray) prop.Value;
+                    for(int i=0; i<array.Count; i++)
+                    {
+                        result.Indent().Append(prop.Name).Append("(").Append(i).Append(")=")
+                            .Append(ValueToString(array [i], array.ElementType)).NewLine();
                     }
                 }
-                result.Append("}").NewLine().PopIndent();
+                else
+                {
+                    result.Indent().Append(prop.Name).Append("=").Append(ValueToString(prop.Value, prop.Type)).NewLine();
+                }
             }
+            foreach(UnExport export in defaultsExport.Children)
+            {
+                result.Indent().Append("// child object " + export.ObjectName + " of type " + export.ClassName).NewLine();
+            }
+            result.Append("}").NewLine().PopIndent();
+        }
+
+        private string ValueToString(object value, string type)
+        {
+            if (value == null)
+                return "?";
+            if (type == "BoolProperty")
+                return (bool) value ? "true" : "false";
+            if (type == "StrProperty")
+                return "\"" + value + "\"";
+            if (type == "StructProperty")
+                return StructToString((UnPropertyList) value);
+            return value.ToString();
+        }
+
+        private string StructToString(UnPropertyList value)
+        {
+            if (value == null) return "?";
+            var result = value.Properties.Aggregate("", (s, prop) => s + "," + prop.Name + "=" + ValueToString(prop.Value, prop.Type));
+            return "(" + (result.Length > 0 ? result.Substring(1) : result) + ")";
         }
 
         private List<string> FindReplicatedProperties(int offset)

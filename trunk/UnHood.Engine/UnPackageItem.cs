@@ -18,5 +18,7 @@ namespace UnHood.Engine
         { 
             get;
         }
+
+        public abstract UnExport Resolve();
     }
 }

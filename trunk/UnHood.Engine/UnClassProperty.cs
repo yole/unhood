@@ -58,7 +58,7 @@ namespace UnHood.Engine
             if (Edit)
             {
                 result.Append("(");
-                if (_category != null)
+                if (_category != null && _category.Name != _export.Parent.ObjectName)
                     result.Append(_category.Name);
                 result.Append(")");
             }

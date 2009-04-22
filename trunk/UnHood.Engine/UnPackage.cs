@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 
 namespace UnHood.Engine
 {
@@ -15,6 +16,11 @@ namespace UnHood.Engine
         object ReadInstance(UnPackage package, BinaryReader reader, UnExport export);
     }
 
+    interface PropertyListReader
+    {
+        UnPropertyList ReadPropertyList(UnPackage package, BinaryReader reader, UnExport export, UnClass owner);
+    }
+
     public class UnPackage
     {
         private readonly Stream _stream;
@@ -22,6 +28,7 @@ namespace UnHood.Engine
         private readonly List<UnImport> _imports = new List<UnImport>();
         private readonly List<UnExport> _exports = new List<UnExport>();
         private readonly List<UnExport> _topLevelExports = new List<UnExport>();
+        private readonly Dictionary<string, UnPackage> _importedPackages = new Dictionary<string, UnPackage>();
 
         private readonly List<int> _exportClassIndexList = new List<int>();
         private readonly List<int> _outerIndexList = new List<int>();
@@ -54,6 +61,8 @@ namespace UnHood.Engine
             get { return _topLevelExports.AsReadOnly(); }
         }
 
+        internal PropertyListReader PropertyListReader { get; set; }
+
         internal void RegisterInstanceReader(string className, InstanceReader reader)
         {
             _instanceReaders.Add(className, reader);
@@ -67,7 +76,7 @@ namespace UnHood.Engine
         internal void AddImport(int packageNameIndex, int classNameIndex, int outer, 
             int nameIndex, int flags)
         {
-            _imports.Add(new UnImport(_names [packageNameIndex], _names [classNameIndex],
+            _imports.Add(new UnImport(this, _names [packageNameIndex], _names [classNameIndex],
                 outer, _names [nameIndex], flags));
         }
 
@@ -110,21 +119,39 @@ namespace UnHood.Engine
             InstanceReader reader;
             if (!_instanceReaders.TryGetValue(className, out reader))
                 return null;
-            _stream.Position = export.ExportOffset;
-            return reader.ReadInstance(this, new BinaryReader(_stream), export);
+            return ReadInstance(export, reader);
         }
 
-        internal void LoadNativeFunctions(PackageReader packageReader)
+        internal object ReadInstance(UnExport export, InstanceReader reader)
         {
-            var processedPackages = new List<string>();
+            long oldPos = _stream.Position;
+            try
+            {
+                _stream.Position = export.ExportOffset;
+                return reader.ReadInstance(this, new BinaryReader(_stream), export);
+            }
+            finally
+            {
+                _stream.Position = oldPos;
+            }
+        }
+
+        internal UnPropertyList ReadPropertyList(UnExport export, UnClass owner)
+        {
+            _stream.Position = export.ExportOffset;
+            return PropertyListReader.ReadPropertyList(this, new BinaryReader(_stream), export, owner);
+        }
+
+        internal void LoadImportedDeclarations(PackageReader packageReader)
+        {
             foreach (var import in _imports)
             {
                 var name = import.PackageName.Name;
-                if (!processedPackages.Contains(name))
+                if (!_importedPackages.ContainsKey(name))
                 {
-                    processedPackages.Add(name);
                     var package = packageReader.ReadPackage(name);
                     LoadNativeFunctions(package);
+                    _importedPackages[name] = package;
                 }
             }
             LoadNativeFunctions(this);
@@ -151,6 +178,21 @@ namespace UnHood.Engine
             UnFunction result;
             if (!_nativeFunctions.TryGetValue(index, out result)) return null;
             return result;
+        }
+
+        public UnExport ResolveImport(UnImport import)
+        {
+            UnPackage importedPackage;
+            if (!_importedPackages.TryGetValue(import.PackageName.Name, out importedPackage))
+            {
+                return null;
+            }
+            var candidates = importedPackage._exports.FindAll(e => e.ClassName == import.ClassName && e.ObjectName == import.ObjectName);
+            if (candidates.Count == 1)
+            {
+                return candidates[0];
+            }
+            return null;
         }
     }
 }
