@@ -141,11 +141,18 @@ namespace UnHood.Engine
     public class UnClass: UnContainer
     {
         private readonly UnPackageItem _defaults;
+        private readonly string _config;
+        private readonly List<string> _hideCategories;
+        private readonly List<UnPackageItem> _interfaces;
 
-        internal UnClass(UnExport self, int superIndex, byte[] bytecode, UnPackageItem defaults)
+        internal UnClass(UnExport self, int superIndex, byte[] bytecode, UnPackageItem defaults, string config, 
+            List<string> hideCategories, List<UnPackageItem> interfaces)
             : base(self, superIndex, bytecode)
         {
             _defaults = defaults;
+            _config = config;
+            _hideCategories = hideCategories;
+            _interfaces = interfaces;
         }
 
         public override void Decompile(TextBuilder result)
@@ -153,7 +160,20 @@ namespace UnHood.Engine
             result.Append("class ").Append(_self.ObjectName);
             if (_super != null)
                 result.Append(" extends ").Append(_super.ObjectName);
-            result.Append(";\n");
+            if (_hideCategories.Count > 0)
+            {
+                result.NewLine().Append("    hidecategories(").Append(string.Join(",", _hideCategories.ToArray())).Append(")");
+            }
+            if (_interfaces.Count > 0)
+            {
+                var intfNames = _interfaces.ConvertAll(e => e.ObjectName).ToArray();
+                result.NewLine().Append("    implements(").Append(string.Join(",", intfNames)).Append(")");
+            }
+            if (_config != "None")
+            {
+                result.NewLine().Append("    config(").Append(_config).Append(")");
+            }
+            result.Append(";").NewLine().NewLine();
             DecompileChildren(result, false);
 
             var statementList = ReadBytecode();
