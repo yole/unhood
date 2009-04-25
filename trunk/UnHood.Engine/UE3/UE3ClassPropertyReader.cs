@@ -9,6 +9,12 @@ namespace UnHood.Engine.UE3
 {
     class UE3ClassPropertyReader: InstanceReader
     {
+        protected static FlagSet _flagSet = new FlagSet(
+            "Edit", "Const", null, null,
+            "Optional", "Net", null, "Parm",
+            "Out", null, "ReturnParm", "Coerce",
+            "Native", "Transient", "Config", "Localized");
+
         public object ReadInstance(UnPackage package, BinaryReader reader, UnExport export)
         {
             // 44 bytes
@@ -19,11 +25,11 @@ namespace UnHood.Engine.UE3
             reader.ReadInt32();
             int category = (int) reader.ReadInt64();
             reader.ReadInt32();
-            var repOffset = ((flags & UnClassProperty.CPF_NET) != 0) ? reader.ReadInt16() : (short)-1;
-            return CreateProperty(export, arraySize, flags, category, reader, repOffset);
+            var repOffset = ((flags & _flagSet.GetMask("Net")) != 0) ? reader.ReadInt16() : (short)-1;
+            return CreateProperty(export, arraySize, new FlagValues(flags, _flagSet), category, reader, repOffset);
         }
 
-        protected virtual UnClassProperty CreateProperty(UnExport export, int arraySize, int flags, int category, BinaryReader reader, short repOffset)
+        protected virtual UnClassProperty CreateProperty(UnExport export, int arraySize, FlagValues flags, int category, BinaryReader reader, short repOffset)
         {
             return new UnClassProperty(export, arraySize, flags, category, repOffset);
         }
@@ -31,7 +37,7 @@ namespace UnHood.Engine.UE3
 
     class UE3StructPropertyReader: UE3ClassPropertyReader
     {
-        protected override UnClassProperty CreateProperty(UnExport export, int arraySize, int flags, int category, BinaryReader reader, short repOffset)
+        protected override UnClassProperty CreateProperty(UnExport export, int arraySize, FlagValues flags, int category, BinaryReader reader, short repOffset)
         {
             var typeItem = export.Package.ResolveClassItem(reader.ReadInt32());
             return new UnTypedClassProperty(export, arraySize, flags, category, typeItem, repOffset);
@@ -40,7 +46,7 @@ namespace UnHood.Engine.UE3
 
     class UE3TypedClassPropertyReader: UE3ClassPropertyReader
     {
-        protected override UnClassProperty CreateProperty(UnExport export, int arraySize, int flags, int category, BinaryReader reader, short repOffset)
+        protected override UnClassProperty CreateProperty(UnExport export, int arraySize, FlagValues flags, int category, BinaryReader reader, short repOffset)
         {
             var typeItem = export.Package.ResolveClassItem(reader.ReadInt32());
             return new UnTypedClassProperty(export, arraySize, flags, category, typeItem, repOffset);
@@ -49,7 +55,7 @@ namespace UnHood.Engine.UE3
 
     class UE3ArrayClassPropertyReader: UE3ClassPropertyReader
     {
-        protected override UnClassProperty CreateProperty(UnExport export, int arraySize, int flags, int category, BinaryReader reader, short repOffset)
+        protected override UnClassProperty CreateProperty(UnExport export, int arraySize, FlagValues flags, int category, BinaryReader reader, short repOffset)
         {
             var typeItem = export.Package.ResolveClassItem(reader.ReadInt32());
             return new UnArrayClassProperty(export, arraySize, flags, category, typeItem, repOffset);
@@ -58,7 +64,7 @@ namespace UnHood.Engine.UE3
 
     class UE3ClassClassPropertyReader : UE3ClassPropertyReader
     {
-        protected override UnClassProperty CreateProperty(UnExport export, int arraySize, int flags, int category, BinaryReader reader, short repOffset)
+        protected override UnClassProperty CreateProperty(UnExport export, int arraySize, FlagValues flags, int category, BinaryReader reader, short repOffset)
         {
             int typeId1 = reader.ReadInt32();
             int typeId2 = reader.ReadInt32();
@@ -70,7 +76,7 @@ namespace UnHood.Engine.UE3
 
     class UE3DelegateClassPropertyReader: UE3ClassPropertyReader
     {
-        protected override UnClassProperty CreateProperty(UnExport export, int arraySize, int flags, int category, BinaryReader reader, short repOffset)
+        protected override UnClassProperty CreateProperty(UnExport export, int arraySize, FlagValues flags, int category, BinaryReader reader, short repOffset)
         {
             int typeId1 = reader.ReadInt32();
             reader.ReadInt32();

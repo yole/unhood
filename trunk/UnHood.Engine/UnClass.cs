@@ -140,15 +140,17 @@ namespace UnHood.Engine
 
     public class UnClass: UnContainer
     {
+        private readonly FlagValues _flags;
         private readonly UnPackageItem _defaults;
         private readonly string _config;
         private readonly List<string> _hideCategories;
         private readonly List<UnPackageItem> _interfaces;
 
-        internal UnClass(UnExport self, int superIndex, byte[] bytecode, UnPackageItem defaults, string config, 
-            List<string> hideCategories, List<UnPackageItem> interfaces)
+        internal UnClass(UnExport self, int superIndex, byte[] bytecode, FlagValues flags, 
+            UnPackageItem defaults, string config, List<string> hideCategories, List<UnPackageItem> interfaces)
             : base(self, superIndex, bytecode)
         {
+            _flags = flags;
             _defaults = defaults;
             _config = config;
             _hideCategories = hideCategories;
@@ -173,6 +175,7 @@ namespace UnHood.Engine
             {
                 result.NewLine().Append("    config(").Append(_config).Append(")");
             }
+            _flags.Except("Compiled", "Parsed", "Config", "Localized").Each(f => result.NewLine().Append("    ").Append(f.ToLower()));
             result.Append(";").NewLine().NewLine();
             DecompileChildren(result, false);
 

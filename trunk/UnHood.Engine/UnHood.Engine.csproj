@@ -52,6 +52,7 @@
   <ItemGroup>
     <Compile Include="BytecodeReader.cs" />
     <Compile Include="Decompilable.cs" />
+    <Compile Include="FlagSet.cs" />
     <Compile Include="StatementList.cs" />
     <Compile Include="StatementListBuilder.cs" />
     <Compile Include="TextBuilder.cs" />

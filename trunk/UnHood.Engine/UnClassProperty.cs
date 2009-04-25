@@ -9,23 +9,10 @@ namespace UnHood.Engine
     {
         protected readonly UnExport _export;
         private readonly int _arraySize;
-        private readonly int _flags;
+        private readonly FlagValues _flags;
         private readonly UnName _category;
 
-        private const int CPF_EDIT = 0x1;
-        private const int CPF_CONST = 0x2;
-        private const int CPF_OPTIONALPARM = 0x10;
-        internal const int CPF_NET = 0x20;
-        private const int CPF_PARM = 0x80;
-        private const int CPF_OUTPARM = 0x100;
-        private const int CPF_RETURNPARM  = 0x400;
-        private const int CPF_COERCEPARM  = 0x800;
-        private const int CPF_NATIVE  = 0x1000;
-        private const int CPF_TRANSIENT  = 0x2000;
-        private const int CPF_CONFIG  = 0x4000;
-        private const int CPF_LOCALIZED  = 0x8000;
-
-        public UnClassProperty(UnExport export, int arraySize, int flags, int category, short repOffset)
+        public UnClassProperty(UnExport export, int arraySize, FlagValues flags, int category, short repOffset)
         {
             _export = export;
             _arraySize = arraySize;
@@ -36,35 +23,24 @@ namespace UnHood.Engine
             RepOffset = repOffset;
         }
 
-        internal bool Edit { get { return (_flags & CPF_EDIT) != 0; } }
-        internal bool Const { get { return (_flags & CPF_CONST) != 0; } }
-        internal bool OutParm { get { return (_flags & CPF_OUTPARM) != 0; } }
-        internal bool OptionalParm { get { return (_flags & CPF_OPTIONALPARM) != 0; } }
-        internal bool Parm { get { return (_flags & CPF_PARM) != 0; } }
-        internal bool ReturnParm { get { return (_flags & CPF_RETURNPARM) != 0; } }
-        internal bool CoerceParm { get { return (_flags & CPF_COERCEPARM) != 0; } }
-        internal bool Native { get { return (_flags & CPF_NATIVE) != 0; } }
-        internal bool Localized { get { return (_flags & CPF_LOCALIZED) != 0; } }
-
-        internal string Name
-        {
-            get { return _export.ObjectName; }
-        }
+        internal string Name { get { return _export.ObjectName; } }
+        internal FlagValues Flags { get { return _flags; } }
+        internal bool Parm { get { return _flags.HasFlag("Parm"); } }
+        internal bool ReturnParm { get { return _flags.HasFlag("ReturnParm"); } }
+        internal bool OptionalParm { get { return _flags.HasFlag("Optional"); } }
 
         public virtual void Decompile(TextBuilder result)
         {
             result.Indent();
             result.Append("var");
-            if (Edit)
+            if (_flags.HasFlag("Edit"))
             {
                 result.Append("(");
                 if (_category != null && _category.Name != _export.Parent.ObjectName)
                     result.Append(_category.Name);
                 result.Append(")");
             }
-            if (Const) result.Append(" const");
-            if (Native) result.Append(" native");
-            if (Localized) result.Append(" localized");
+            _flags.Except("Edit").Each(f => result.Append(" " + f.ToLower()));
             result.Append(" ").Append(GetPropertyType()).Append(" ");
             result.Append(_export.ObjectName);
             if (_arraySize != 1)
@@ -87,17 +63,12 @@ namespace UnHood.Engine
             return "???";
         }
 
-        public int GetUnknownParamFlags()
-        {
-            return _flags & ~(CPF_OPTIONALPARM | CPF_PARM | CPF_RETURNPARM | CPF_COERCEPARM | CPF_CONST | CPF_OUTPARM);
-        }
-
         public short RepOffset { get; private set; }
     }
 
     class UnTypedClassProperty: UnClassProperty
     {
-        public UnTypedClassProperty(UnExport export, int arraySize, int flags, int category, UnPackageItem type, short repOffset) 
+        public UnTypedClassProperty(UnExport export, int arraySize, FlagValues flags, int category, UnPackageItem type, short repOffset) 
             : base(export, arraySize, flags, category, repOffset)
         {
             Type = type;
@@ -115,7 +86,7 @@ namespace UnHood.Engine
 
     class UnArrayClassProperty: UnTypedClassProperty
     {
-        public UnArrayClassProperty(UnExport export, int arraySize, int flags, int category, UnPackageItem type, short repOffset) 
+        public UnArrayClassProperty(UnExport export, int arraySize, FlagValues flags, int category, UnPackageItem type, short repOffset) 
             : base(export, arraySize, flags, category, type, repOffset)
         {
         }
@@ -139,7 +110,7 @@ namespace UnHood.Engine
 
     class UnClassClassProperty: UnClassProperty
     {
-        public UnClassClassProperty(UnExport export, int arraySize, int flags, int category, UnPackageItem type1, UnPackageItem type2, short repOffset) 
+        public UnClassClassProperty(UnExport export, int arraySize, FlagValues flags, int category, UnPackageItem type1, UnPackageItem type2, short repOffset) 
             : base(export, arraySize, flags, category, repOffset)
         {
             Type1 = type1;
@@ -159,7 +130,7 @@ namespace UnHood.Engine
     {
         private readonly UnPackageItem _type;
 
-        public UnDelegateClassProperty(UnExport export, int arraySize, int flags, int category, UnPackageItem type, short repOffset)
+        public UnDelegateClassProperty(UnExport export, int arraySize, FlagValues flags, int category, UnPackageItem type, short repOffset)
             : base(export, arraySize, flags, category, repOffset)
         {
             _type = type;

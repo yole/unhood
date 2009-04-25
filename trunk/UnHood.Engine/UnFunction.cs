@@ -11,26 +11,11 @@ namespace UnHood.Engine
     public class UnFunction: UnBytecodeOwner
     {
         private readonly string _name;
-        private readonly int _flags;
+        private readonly FlagValues _flags;
         private readonly int _nativeIndex;
         private readonly int _operatorPrecedence;
 
-        private const int FF_FINAL = 1;
-        private const int FF_DEFINED = 2;
-        private const int FF_LATENT = 8;
-        private const int FF_PRE_OPERATOR = 0x10;
-        internal const int FF_NET = 0x40;
-        private const int FF_NETRELIABLE = 0x80;
-        private const int FF_SIMULATED = 0x100;
-        private const int FF_EXEC = 0x200;
-        private const int FF_NATIVE = 0x400;
-        private const int FF_EVENT = 0x800;
-        private const int FF_OPERATOR = 0x1000;
-        private const int FF_STATIC = 0x2000;
-        private const int FF_PROTECTED = 0x80000;
-        private const int FF_DELEGATE = 0x100000;
-
-        public UnFunction(UnExport export, string name, int flags, byte[] bytecode, int nativeIndex, int operatorPrecedence)
+        internal UnFunction(UnExport export, string name, FlagValues flags, byte[] bytecode, int nativeIndex, int operatorPrecedence)
             : base(export, bytecode)
         {
             _name = name;
@@ -44,33 +29,22 @@ namespace UnHood.Engine
             get { return _bytecode; }
         }
 
-        internal bool Final { get { return (_flags & FF_FINAL) != 0; } }
-        internal bool Defined { get { return (_flags & FF_DEFINED) != 0; } }
-        internal bool Latent { get { return (_flags & FF_LATENT) != 0; } }
-        internal bool Simulated { get { return (_flags & FF_SIMULATED) != 0; } }
-        internal bool Exec { get { return (_flags & FF_EXEC) != 0; } }
-        internal bool Native { get { return (_flags & FF_NATIVE) != 0; } }
-        internal bool Event { get { return (_flags & FF_EVENT) != 0; } }
-        internal bool PreOperator { get { return (_flags & FF_PRE_OPERATOR) != 0; } }
-        internal bool Operator { get { return (_flags & FF_OPERATOR) != 0; } }
-        internal bool PostOperator { get { return Operator && _operatorPrecedence == 0; } }
-        internal bool Static { get { return (_flags & FF_STATIC) != 0; } }
-        internal bool Protected { get { return (_flags & FF_PROTECTED) != 0; } }
-        internal bool Delegate { get { return (_flags & FF_DELEGATE) != 0; } }
-        internal bool Reliable { get { return (_flags & FF_NETRELIABLE) != 0; } }
-
         internal string Name { get { return _name; } }
         internal int NativeIndex { get { return _nativeIndex; } }
+        internal bool Native { get { return HasFlag("Native"); } }
+        internal bool Event { get { return HasFlag("Event"); } }
+        internal bool PreOperator { get { return HasFlag("PreOperator"); } }
+        internal bool Operator { get { return HasFlag("Operator"); } }
+        internal bool PostOperator { get { return Operator && _operatorPrecedence == 0; } }
 
         public override void Decompile(TextBuilder result)
         {
             Decompile(result, true);
         }
 
-        private int GetUnknownFunctionFlags()
+        internal bool HasFlag(string name)
         {
-            return _flags & ~(FF_NATIVE | FF_FINAL | FF_LATENT | FF_SIMULATED | FF_EXEC | FF_STATIC | FF_EVENT | FF_PROTECTED | FF_DELEGATE | FF_DEFINED |
-                FF_NETRELIABLE | 0x20000);
+            return _flags.HasFlag(name);
         }
 
         public void Decompile(TextBuilder result, bool createControlStatements)
@@ -83,22 +57,12 @@ namespace UnHood.Engine
                     result.Append("(").Append(_nativeIndex).Append(")");
                 result.Append(" ");
             }
-            if (Final) result.Append("final ");
-            if (Latent) result.Append("latent ");
-            if (Simulated) result.Append("simulated ");
-            if (Exec) result.Append("exec ");
-            if (Static) result.Append("static ");
-            if (Protected) result.Append("protected ");
-            if (Reliable) result.Append("reliable ");
-            int remainingFunctionFlags = GetUnknownFunctionFlags();
-            if (remainingFunctionFlags != 0)
-            {
-                result.Append("/* ").Append(remainingFunctionFlags.ToString("X8")).Append("*/ ");
-            }
 
-            if (Event)
+            _flags.Except("Native", "Event", "Delegate", "Defined", "Public", "HasDefaults", "HasOutParms").Each(f => result.Append(f.ToLower() + " "));
+
+            if (HasFlag("Event"))
                 result.Append("event ");
-            else if (Delegate)
+            else if (HasFlag("Delegate"))
                 result.Append("delegate ");
             else
                 result.Append("function ");
@@ -124,15 +88,8 @@ namespace UnHood.Engine
                         {
                             if (paramCount > 0)
                                 result.Append(", ");
-                            if (prop.OutParm) result.Append("out ");
-                            if (prop.OptionalParm) result.Append("optional ");
-                            if (prop.CoerceParm) result.Append("coerce ");
-                            if (prop.Const) result.Append("const ");
-                            int remainingFlags = prop.GetUnknownParamFlags();
-                            if (remainingFlags != 0)
-                            {
-                                result.Append("/* ").Append(remainingFlags.ToString("X8")).Append("*/ ");
-                            }
+
+                            prop.Flags.Each(f => result.Append(f.ToLower() + " "));
                             result.Append(prop.GetPropertyType()).Append(" ").Append(export.ObjectName);
                             if (prop.OptionalParm && statements.Count > 0)
                             {
@@ -154,7 +111,7 @@ namespace UnHood.Engine
                 }
             }
             result.Append(")");
-            if (!Native && Defined)
+            if (HasFlag("Defined"))
             {
                 result.NewLine().Indent().Append("{").NewLine();
                 result.PushIndent();

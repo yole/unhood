@@ -8,6 +8,12 @@ namespace UnHood.Engine.UE3
 {
     class UE3ClassReader: InstanceReader
     {
+        private static readonly FlagSet _flagSet = new FlagSet(
+            "Abstract", "Compiled", "Config", "Transient",
+            "Parsed", "Localized", "SafeReplace", "Native",
+            "NoExport", "Placeable", "PerObjectConfig", "NativeReplication",
+            "EditInlineNew", "CollapseCategories", "Interface");
+
         public object ReadInstance(UnPackage package, BinaryReader reader, UnExport export)
         {
             reader.ReadInt32();
@@ -25,9 +31,9 @@ namespace UnHood.Engine.UE3
             int methodCount = reader.ReadInt32();
             for (int i = 0; i < methodCount * 3; i++)
                 reader.ReadInt32();
+            int flags = reader.ReadInt32();
             reader.ReadByte();
-            for (int i = 0; i < 2; i++)
-                reader.ReadInt32();
+            reader.ReadInt32();
             var configNameIndex = reader.ReadInt64();
             var config = package.Names[(int) configNameIndex].Name;
             int hideCategoriesCount = reader.ReadInt32();
@@ -53,7 +59,7 @@ namespace UnHood.Engine.UE3
             int defaultPropertiesIndex = reader.ReadInt32();
             UnExport defaultProperties = defaultPropertiesIndex == 0
                 ? null : package.ResolveClassItem(defaultPropertiesIndex).Resolve();
-            return new UnClass(export, superIndex, bytecode, defaultProperties, config, hideCategories, interfaces);
+            return new UnClass(export, superIndex, bytecode, new FlagValues(flags, _flagSet), defaultProperties, config, hideCategories, interfaces);
         }
     }
 }

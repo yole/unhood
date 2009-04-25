@@ -8,6 +8,14 @@ namespace UnHood.Engine.UE3
 {
     internal class UE3FunctionReader : InstanceReader
     {
+        private static readonly FlagSet _flagSet = new FlagSet("Final", "Defined", "Iterator", "Latent", 
+            "PreOperator", "Singular", "Net", "NetReliable", 
+            "Simulated", "Exec", "Native", "Event", 
+            "Operator", "Static", "Const", null,
+            null, "Public", "Private", "Protected", 
+            "Delegate", "NetServer", "HasOutParms", "HasDefaults", 
+            "NetClient", "FuncInherit", "FuncOverrideMatch");
+
         public object ReadInstance(UnPackage package, BinaryReader reader, UnExport export)
         {
             reader.ReadBytes(12);
@@ -21,13 +29,14 @@ namespace UnHood.Engine.UE3
             int nativeIndex = reader.ReadInt16();
             int operatorPrecedence = reader.ReadByte();
             int functionFlags = reader.ReadInt32();
-            if ((functionFlags & UnFunction.FF_NET) != 0)
+            if ((functionFlags & _flagSet.GetMask("Net")) != 0)
             {
                 reader.ReadInt16();  // repOffset
             }
             int friendlyNameIndex = reader.ReadInt32();
             reader.ReadInt32();
-            return new UnFunction(export, package.Names[friendlyNameIndex].Name, functionFlags, bytecode, nativeIndex, operatorPrecedence);
+            return new UnFunction(export, package.Names[friendlyNameIndex].Name, 
+                new FlagValues(functionFlags, _flagSet), bytecode, nativeIndex, operatorPrecedence);
         }
     }
 }
