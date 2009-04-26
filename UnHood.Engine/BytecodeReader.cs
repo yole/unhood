@@ -402,7 +402,10 @@ namespace UnHood.Engine
                     return Token(_reader.ReadSingle().ToString());
 
                 case EX_StringConst:
-                    return Token("\"" + ReadAsciiz() + "\"");
+                    {
+                        var s = ReadAsciiz().Replace("\n", "\\n").Replace("\t", "\\t");
+                        return Token("\"" + s + "\"");
+                    }
 
                 case EX_ByteConst:
                 case EX_IntConstByte:
