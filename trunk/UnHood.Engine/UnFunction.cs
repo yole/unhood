@@ -89,7 +89,7 @@ namespace UnHood.Engine
                             if (paramCount > 0)
                                 result.Append(", ");
 
-                            prop.Flags.Each(f => result.Append(f.ToLower() + " "));
+                            prop.Flags.Except("Parm").Each(f => result.Append(f.ToLower() + " "));
                             result.Append(prop.GetPropertyType()).Append(" ").Append(export.ObjectName);
                             if (prop.OptionalParm && statements.Count > 0)
                             {
