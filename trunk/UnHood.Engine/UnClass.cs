@@ -164,7 +164,7 @@ namespace UnHood.Engine
             result.Append("class ").Append(_self.ObjectName);
             if (_super != null)
                 result.Append(" extends ").Append(_super.ObjectName);
-            if (_outerInstance != null)
+            if (_outerInstance != null && _outerInstance.ObjectName != "Object")
             {
                 result.NewLine().Append("    within ").Append(_outerInstance.ObjectName);
             }
