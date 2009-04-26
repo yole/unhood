@@ -140,16 +140,18 @@ namespace UnHood.Engine
 
     public class UnClass: UnContainer
     {
+        private readonly UnPackageItem _outerInstance;
         private readonly FlagValues _flags;
         private readonly UnPackageItem _defaults;
         private readonly string _config;
         private readonly List<string> _hideCategories;
         private readonly List<UnPackageItem> _interfaces;
 
-        internal UnClass(UnExport self, int superIndex, byte[] bytecode, FlagValues flags, 
+        internal UnClass(UnExport self, int superIndex, UnPackageItem outerInstance, byte[] bytecode, FlagValues flags, 
             UnPackageItem defaults, string config, List<string> hideCategories, List<UnPackageItem> interfaces)
             : base(self, superIndex, bytecode)
         {
+            _outerInstance = outerInstance;
             _flags = flags;
             _defaults = defaults;
             _config = config;
@@ -162,6 +164,10 @@ namespace UnHood.Engine
             result.Append("class ").Append(_self.ObjectName);
             if (_super != null)
                 result.Append(" extends ").Append(_super.ObjectName);
+            if (_outerInstance != null)
+            {
+                result.NewLine().Append("    within ").Append(_outerInstance.ObjectName);
+            }
             if (_hideCategories.Count > 0)
             {
                 result.NewLine().Append("    hidecategories(").Append(string.Join(",", _hideCategories.ToArray())).Append(")");

@@ -40,7 +40,7 @@ namespace UnHood.Engine
                     result.Append(_category.Name);
                 result.Append(")");
             }
-            _flags.Except("Edit").Each(f => result.Append(" " + f.ToLower()));
+            _flags.Except("Edit", "Net").Each(f => result.Append(" " + f.ToLower()));
             result.Append(" ").Append(GetPropertyType()).Append(" ");
             result.Append(_export.ObjectName);
             if (_arraySize != 1)

@@ -33,7 +33,8 @@ namespace UnHood.Engine.UE3
                 reader.ReadInt32();
             int flags = reader.ReadInt32();
             reader.ReadByte();
-            reader.ReadInt32();
+            int outerIndex = reader.ReadInt32();
+            var outerInstance = package.ResolveClassItem(outerIndex);
             var configNameIndex = reader.ReadInt64();
             var config = package.Names[(int) configNameIndex].Name;
             int hideCategoriesCount = reader.ReadInt32();
@@ -59,7 +60,7 @@ namespace UnHood.Engine.UE3
             int defaultPropertiesIndex = reader.ReadInt32();
             UnExport defaultProperties = defaultPropertiesIndex == 0
                 ? null : package.ResolveClassItem(defaultPropertiesIndex).Resolve();
-            return new UnClass(export, superIndex, bytecode, new FlagValues(flags, _flagSet), defaultProperties, config, hideCategories, interfaces);
+            return new UnClass(export, superIndex, outerInstance, bytecode, new FlagValues(flags, _flagSet), defaultProperties, config, hideCategories, interfaces);
         }
     }
 }
