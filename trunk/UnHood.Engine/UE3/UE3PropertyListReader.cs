@@ -149,6 +149,12 @@ namespace UnHood.Engine.UE3
                 }
                 return result;
             }
+            if (type == "DelegateProperty")
+            {
+                var v1 = _reader.ReadInt32();
+                var nameIndex = _reader.ReadInt64();
+                return _package.Names[(int) nameIndex].Name;
+            }
             return null;
         }
 

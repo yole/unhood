@@ -224,18 +224,23 @@ namespace UnHood.Engine
             UnPropertyList propertyList = Package.ReadPropertyList(defaultsExport, this);
             foreach(UnProperty prop in propertyList.Properties)
             {
+                var name = prop.Name;
+                if (name.StartsWith("__") && name.EndsWith("__Delegate"))
+                {
+                    name = name.Substring(2, name.Length - 2 - 10);
+                }
                 if (prop.Value is UnPropertyArray)
                 {
                     var array = (UnPropertyArray) prop.Value;
                     for(int i=0; i<array.Count; i++)
                     {
-                        result.Indent().Append(prop.Name).Append("(").Append(i).Append(")=")
+                        result.Indent().Append(name).Append("(").Append(i).Append(")=")
                             .Append(ValueToString(array [i], array.ElementType)).NewLine();
                     }
                 }
                 else
                 {
-                    result.Indent().Append(prop.Name).Append("=").Append(ValueToString(prop.Value, prop.Type)).NewLine();
+                    result.Indent().Append(name).Append("=").Append(ValueToString(prop.Value, prop.Type)).NewLine();
                 }
             }
             foreach(UnExport export in defaultsExport.Children)
